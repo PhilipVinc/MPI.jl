@@ -753,18 +753,24 @@ function Reduce(object::T, op::Union{Op,Function}, root::Integer, comm::Comm) wh
     isroot ? recvbuf[1] : nothing
 end
 
-function Allreduce!(sendbuf::MPIBuffertype{T}, recvbuf::MPIBuffertype{T},
-                   count::Integer, op::Op, comm::Comm) where T
-    ccall(MPI_ALLREDUCE, Nothing, (Ptr{T}, Ptr{T}, Ref{Cint}, Ref{Cint}, Ref{Cint},
-          Ref{Cint}, Ref{Cint}), sendbuf, recvbuf, count, mpitype(T),
+function Allreduce!(sendbuf::MPIBuffertype{T1}, recvbuf::MPIBuffertype{T2},
+                   count::Integer, op::Op, comm::Comm) where {T2, T1<:Union{T2, Cvoid}}
+    @assert length(recvbuf) == count
+    ccall(MPI_ALLREDUCE, Nothing, (Ptr{T1}, Ptr{T2}, Ref{Cint}, Ref{Cint}, Ref{Cint},
+          Ref{Cint}, Ref{Cint}), sendbuf, recvbuf, count, mpitype(T2),
           op.val, comm.val, 0)
 
     recvbuf
 end
 
-function Allreduce!(sendbuf::MPIBuffertype{T}, recvbuf::MPIBuffertype{T},
-                   op::Union{Op,Function}, comm::Comm) where T
+function Allreduce!(sendbuf::MPIBuffertype{T1}, recvbuf::MPIBuffertype{T2},
+                   op::Union{Op,Function}, comm::Comm) where {T2, T1<:Union{T2, Cvoid}}
     Allreduce!(sendbuf, recvbuf, length(recvbuf), op, comm)
+end
+
+# in place version, where MPI_IN_PLACE = ((void*)1)
+function Allreduce!(sendbuf::MPIBuffertype{T}, op::Union{Op,Function}, comm::Comm) where T
+    Allreduce!(Ptr{Cvoid}(1), sendbuf, length(sendbuf), op, comm)
 end
 
 function Allreduce(obj::T, op::Union{Op,Function}, comm::Comm) where T
@@ -776,8 +782,7 @@ function Allreduce(obj::T, op::Union{Op,Function}, comm::Comm) where T
 end
 
 # allocate receive buffer automatically
-function allreduce(sendbuf::MPIBuffertype{T}, op::Union{Op,Function}, comm::Comm) where T
-
+function Allreduce(sendbuf::MPIBuffertype{T}, op::Union{Op,Function}, comm::Comm) where T
   recvbuf = similar(sendbuf)
   Allreduce!(sendbuf, recvbuf, length(recvbuf), op, comm)
 end
