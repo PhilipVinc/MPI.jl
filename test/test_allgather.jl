@@ -19,6 +19,30 @@ for typ in Base.uniontypes(MPI.MPIDatatype)
     C = allgather(A)
     @test typeof(C) === Vector{typ}
     @test C == map(typ, collect(1:MPI.Comm_size(comm)))
+
+    val = typ(MPI.Comm_rank(comm) + 1)
+
+    # Test passing output buffer
+    A = typ[val]
+    C = fill(val, MPI.Comm_size(comm))
+    MPI.Allgather!(A, C, comm)
+    @test C == map(typ, collect(1:MPI.Comm_size(comm)))
+
+    # Test explicit IN_PLACE
+    A = typ[val]
+    C = fill(val, MPI.Comm_size(comm))
+    C[MPI.Comm_rank(comm)+1] = MPI.Comm_rank(comm) + 1
+    MPI.Allgather!(Ptr{Cvoid}(1), C, comm)
+    @test typeof(C) === Vector{typ}
+    @test C == map(typ, collect(1:MPI.Comm_size(comm)))
+
+    # Test implicit IN_PLACE
+    A = typ[val]
+    C = fill(val, MPI.Comm_size(comm))
+    C[MPI.Comm_rank(comm)+1] = MPI.Comm_rank(comm) + 1
+    MPI.Allgather!(C, 1, comm)
+    @test typeof(C) === Vector{typ}
+    @test C == map(typ, collect(1:MPI.Comm_size(comm)))
 end
 
 MPI.Finalize()

@@ -832,13 +832,35 @@ function Gather(object::T, root::Integer, comm::Comm) where T
     isroot ? recvbuf : nothing
 end
 
+# Base method
+function Allgather!(sendbuf::MPIBuffertype{T1}, recvbuf::MPIBuffertype{T2}, count::Integer,
+                   comm::Comm) where {T2, T1<:Union{T2, Cvoid}}
+    @assert length(recvbuf) == Comm_size(comm)*count
+    T1 != Cvoid && @assert pointer(recvbuf) != pointer(sendbuf)
+        ccall(MPI_ALLGATHER, Nothing,
+          (Ptr{T1}, Ref{Cint}, Ref{Cint}, Ptr{T2}, Ref{Cint}, Ref{Cint}, Ref{Cint}, Ref{Cint}),
+          sendbuf, count, mpitype(T2), recvbuf, count, mpitype(T2), comm.val, 0)
+    recvbuf
+end
+
+# Computes count and calls Base Method
+function Allgather!(sendbuf::MPIBuffertype{T1}, recvbuf::MPIBuffertype{T2}, 
+                    comm::Comm)  where {T2, T1<:Union{T2, Cvoid}}
+    # If MPI_IN_PLACE then the length is total/size, otherwise it is length(buf)
+    count::Int = T1 == Cvoid ? length(recvbuf)/Comm_size(comm) :  length(sendbuf)
+    Allgather!(sendbuf, recvbuf, count, comm)
+end
+
+# in place version, where MPI_IN_PLACE = ((void*)1)
+function Allgather!(sendbuf::MPIBuffertype{T}, count::Integer,
+                   comm::Comm) where T
+    Allgather!(Ptr{Cvoid}(1), sendbuf, count, comm)
+end
+
 function Allgather(sendbuf::MPIBuffertype{T}, count::Integer,
                    comm::Comm) where T
     recvbuf = Array{T}(undef, Comm_size(comm) * count)
-    ccall(MPI_ALLGATHER, Nothing,
-          (Ptr{T}, Ref{Cint}, Ref{Cint}, Ptr{T}, Ref{Cint}, Ref{Cint}, Ref{Cint}, Ref{Cint}),
-          sendbuf, count, mpitype(T), recvbuf, count, mpitype(T), comm.val, 0)
-    recvbuf
+    Allgather!(sendbuf, recvbuf, count, comm)
 end
 
 function Allgather(sendbuf::Array{T}, comm::Comm) where T
@@ -850,6 +872,7 @@ function Allgather(sendbuf::SubArray{T}, comm::Comm) where T
     Allgather(sendbuf, length(sendbuf), comm)
 end
 
+# Allocating output for generic object
 function Allgather(object::T, comm::Comm) where T
     sendbuf = T[object]
     recvbuf = Allgather(sendbuf, comm)
