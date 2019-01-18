@@ -806,15 +806,23 @@ function Scatter(sendbuf::MPIBuffertype{T}, count::Integer, root::Integer,
     recvbuf
 end
 
+function Scatterv!(sendbuf::MPIBuffertype{T1}, recvbuf::MPIBuffertype{T2},
+                  counts::Vector{Cint}, root::Integer,
+                  comm::Comm) where {T1, T2<:Union{T1, Cvoid}}
+    #@assert length(recvbuf)
+    recvcnt = counts[Comm_rank(comm) + 1]
+    disps = accumulate(+, counts) - counts
+    ccall(MPI_SCATTERV, Nothing,
+          (Ptr{T1}, Ptr{Cint}, Ptr{Cint}, Ref{Cint}, Ptr{T1}, Ref{Cint}, Ref{Cint}, Ref{Cint}, Ref{Cint}, Ref{Cint}),
+          sendbuf, counts, disps, mpitype(T1), recvbuf, recvcnt, mpitype(T1), root, comm.val, 0)
+    recvbuf
+end
+
 function Scatterv(sendbuf::MPIBuffertype{T},
                   counts::Vector{Cint}, root::Integer,
                   comm::Comm) where T
     recvbuf = Array{T}(undef, counts[Comm_rank(comm) + 1])
-    recvcnt = counts[Comm_rank(comm) + 1]
-    disps = accumulate(+, counts) - counts
-    ccall(MPI_SCATTERV, Nothing,
-          (Ptr{T}, Ptr{Cint}, Ptr{Cint}, Ref{Cint}, Ptr{T}, Ref{Cint}, Ref{Cint}, Ref{Cint}, Ref{Cint}, Ref{Cint}),
-          sendbuf, counts, disps, mpitype(T), recvbuf, recvcnt, mpitype(T), root, comm.val, 0)
+    Scatterv!(sendbuf, recvbuf, counts, root, comm)
     recvbuf
 end
 
