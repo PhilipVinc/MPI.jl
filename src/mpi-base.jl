@@ -770,7 +770,7 @@ end
 
 # in place version, where MPI_IN_PLACE = ((void*)1)
 function Allreduce!(sendbuf::MPIBuffertype{T}, op::Union{Op,Function}, comm::Comm) where T
-    Allreduce!(Ptr{Cvoid}(1), sendbuf, length(sendbuf), op, comm)
+    Allreduce!(IN_PLACE, sendbuf, length(sendbuf), op, comm)
 end
 
 function Allreduce(obj::T, op::Union{Op,Function}, comm::Comm) where T
@@ -874,7 +874,7 @@ end
 # in place version, where MPI_IN_PLACE = ((void*)1)
 function Allgather!(sendbuf::MPIBuffertype{T}, count::Integer,
                    comm::Comm) where T
-    Allgather!(Ptr{Cvoid}(1), sendbuf, count, comm)
+    Allgather!(IN_PLACE, sendbuf, count, comm)
 end
 
 function Allgather(sendbuf::MPIBuffertype{T}, count::Integer,
@@ -926,7 +926,7 @@ end
 # In place version, where MPI_IN_PLACE = ((void*)1)
 function Allgatherv!(recvbuf::MPIBuffertype{T}, counts::Vector{Cint},
                      comm::Comm) where T
-    Allgatherv!(Ptr{Cvoid}(1), recvbuf, counts, comm)
+    Allgatherv!(IN_PLACE, recvbuf, counts, comm)
 end
 
 # Alloacting version
