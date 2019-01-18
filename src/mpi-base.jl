@@ -789,13 +789,20 @@ end
 
 include("mpi-op.jl")
 
-function Scatter(sendbuf::MPIBuffertype{T},count::Integer, root::Integer,
+function Scatter!(sendbuf::MPIBuffertype{T1}, recvbuf::MPIBuffertype{T2},
+                  count::Integer, root::Integer, comm::Comm) where {T1, T2<:Union{T1,Cvoid}}
+    #TODO add an assertion for the size of the recvbuf. 
+    ccall(MPI_SCATTER, Nothing,
+          (Ptr{T1}, Ref{Cint}, Ref{Cint}, Ptr{T2}, Ref{Cint}, Ref{Cint},
+           Ref{Cint}, Ref{Cint}, Ref{Cint}), sendbuf, count, mpitype(T1),
+           recvbuf, count, mpitype(T1), root, comm.val, 0)
+    recvbuf
+end
+
+function Scatter(sendbuf::MPIBuffertype{T}, count::Integer, root::Integer,
                  comm::Comm) where T
     recvbuf = Array{T}(undef, count)
-    ccall(MPI_SCATTER, Nothing,
-          (Ptr{T}, Ref{Cint}, Ref{Cint}, Ptr{T}, Ref{Cint}, Ref{Cint},
-           Ref{Cint}, Ref{Cint}, Ref{Cint}), sendbuf, count, mpitype(T),
-           recvbuf, count, mpitype(T), root, comm.val, 0)
+    Scatter!(sendbuf, recvbuf, count, root, comm)
     recvbuf
 end
 
