@@ -29,7 +29,7 @@ for typ in Base.uniontypes(MPI.MPIDatatype)
     MPI.Allgatherv!(A, B, counts, comm)
     @test B == ones(typ, 3 * div(size,2) + mod(size,2))
 
-  	# Test explicit IN_PLACE
+	# Test explicit IN_PLACE
     A = ones(typ, mod(rank,2) + 1)
     counts = Cint[mod(i,2) + 1 for i in 0:(size-1)]
 	B      = ones(typ, sum(counts))
@@ -37,6 +37,16 @@ for typ in Base.uniontypes(MPI.MPIDatatype)
 	len    = counts[MPI.Comm_rank(comm)+1]
 	B[start:(start+len-1)] .= A 
     MPI.Allgatherv!(Ptr{Cvoid}(1), B, counts, comm)
+    @test B == ones(typ, 3 * div(size,2) + mod(size,2))
+
+	# Test implicit IN_PLACE
+    A = ones(typ, mod(rank,2) + 1)
+    counts = Cint[mod(i,2) + 1 for i in 0:(size-1)]
+	B      = ones(typ, sum(counts))
+	start  = (cumsum(counts)-counts.+1)[MPI.Comm_rank(comm)+1]
+	len    = counts[MPI.Comm_rank(comm)+1]
+	B[start:(start+len-1)] .= A
+    MPI.Allgatherv!(B, counts, comm)
     @test B == ones(typ, 3 * div(size,2) + mod(size,2))
 
 end
